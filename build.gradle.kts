@@ -8,7 +8,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.anthropic:anthropic-java:2.11.1")
+    implementation("com.google.genai:google-genai:1.36.0")
     testImplementation(kotlin("test"))
 }
 

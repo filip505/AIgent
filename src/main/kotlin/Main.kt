@@ -1,42 +1,32 @@
-import com.anthropic.client.okhttp.AnthropicOkHttpClient
-import com.anthropic.models.messages.MessageCreateParams
-import com.anthropic.models.messages.MessageParam
+import com.google.genai.Client
+import com.google.genai.types.Content
+import com.google.genai.types.Part
 
 fun main() {
-    val client = AnthropicOkHttpClient.fromEnv()
-    val messages = mutableListOf<MessageParam>()
+    val client = Client.builder()
+        .apiKey(System.getenv("GOOGLE_API_KEY"))
+        .build()
 
-    println("Chat with Claude (Ctrl+D to quit)")
+    val history = mutableListOf<Content>()
+
+    println("Chat with Gemini (Ctrl+D to quit)")
     while (true) {
         print("> ")
         val input = readlnOrNull() ?: break
 
-        messages.add(
-            MessageParam.builder()
-                .role(MessageParam.Role.USER)
-                .content(input)
-                .build()
+        val userContent = Content.fromParts(Part.fromText(input))
+        history.add(userContent)
+
+        val response = client.models.generateContent(
+            "gemini-2.5-flash",
+            history,
+            null
         )
 
-        val response = client.messages().create(
-            MessageCreateParams.builder()
-                .model("claude-opus-4-6")
-                .maxTokens(1024)
-                .messages(messages)
-                .build()
-        )
-
-        val text = response.content()
-            .filter { it.isText() }
-            .joinToString("") { it.asText().text() }
-
+        val text = response.text() ?: "(no response)"
         println(text)
 
-        messages.add(
-            MessageParam.builder()
-                .role(MessageParam.Role.ASSISTANT)
-                .content(text)
-                .build()
-        )
+        val assistantContent = Content.fromParts(Part.fromText(text))
+        history.add(assistantContent)
     }
 }
