@@ -5,10 +5,12 @@ plugins {
 
 repositories {
     mavenCentral()
+    maven("https://jitpack.io")
 }
 
 dependencies {
     implementation("com.google.genai:google-genai:1.36.0")
+    implementation("io.github.kotlin-telegram-bot.kotlin-telegram-bot:telegram:6.3.0")
     testImplementation(kotlin("test"))
 }
 
