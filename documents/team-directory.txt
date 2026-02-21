@@ -1,0 +1,21 @@
+Engineering Team
+
+Lead: Maria Gonzalez - maria@company.com - Joined 2019
+She oversees all backend and frontend development. Expert in distributed systems and Kotlin.
+
+Senior Developer: Ivan Petrovic - ivan@company.com - Joined 2020
+Specializes in API design and microservices. Runs the weekly code review sessions every Thursday at 2pm.
+
+Developer: Sarah Chen - sarah@company.com - Joined 2022
+Focuses on frontend development with React and TypeScript. Maintains the design system.
+
+DevOps: Alex Kim - alex@company.com - Joined 2021
+Manages CI/CD pipelines, Kubernetes clusters, and cloud infrastructure on AWS.
+
+Product Team
+
+Product Manager: James Wilson - james@company.com - Joined 2018
+Responsible for roadmap planning and stakeholder communication. Holds sprint planning every Monday at 10am.
+
+Designer: Emma Larsson - emma@company.com - Joined 2023
+Creates UI/UX designs in Figma. Conducts user research sessions bi-weekly on Wednesdays.

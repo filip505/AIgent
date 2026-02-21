@@ -1,0 +1,26 @@
+Project Phoenix - Q1 2026 Goals
+
+Overview:
+Project Phoenix is a customer-facing dashboard rewrite. The current dashboard was built in 2021 using Angular and is showing performance issues with large datasets. The new version will use React with server-side rendering.
+
+Timeline:
+- January: Design phase and technical planning
+- February: Core component development and API migration
+- March: Integration testing, performance benchmarks, and staged rollout
+
+Technical Stack:
+- Frontend: React 19, Next.js 15, TailwindCSS
+- Backend: Kotlin with Ktor framework
+- Database: PostgreSQL 16 with read replicas
+- Cache: Redis for session management and query caching
+- Deployment: Kubernetes on AWS EKS
+
+Key Metrics:
+- Dashboard load time must be under 2 seconds
+- Support 10,000 concurrent users
+- 99.9% uptime SLA
+
+Known Risks:
+- Data migration from the old Angular app may cause 2-4 hours of downtime
+- Third-party API rate limits could affect the reporting module
+- The design team is at capacity and may not deliver all mockups on time

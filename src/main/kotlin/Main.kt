@@ -20,11 +20,17 @@ fun main() {
         .tools(listOf(googleSearch))
         .build()
 
-    val repository = ChatHistoryRepository()
-    val history = repository.load()
+    val chatHistory = ChatHistoryRepository()
+    val history = chatHistory.load()
 
     if (history.isNotEmpty()) {
         println("Loaded ${history.size} messages from history.")
+    }
+
+    val documents = DocumentRepository(client)
+    val indexed = documents.index()
+    if (indexed > 0) {
+        println("Indexed $indexed chunks from documents.")
     }
 
     println("Chat with Gemini (Ctrl+D to quit)")
@@ -32,9 +38,18 @@ fun main() {
         print("> ")
         val input = readlnOrNull() ?: break
 
+        // Search for relevant document chunks
+        val relevantChunks = documents.search(input)
+        val message = if (relevantChunks.isNotEmpty()) {
+            val context = relevantChunks.joinToString("\n\n") { "[${it.source}]\n${it.text}" }
+            "Context from documents:\n---\n$context\n---\nUser question: $input"
+        } else {
+            input
+        }
+
         val userContent = Content.builder()
             .role("user")
-            .parts(listOf(Part.fromText(input)))
+            .parts(listOf(Part.fromText(message)))
             .build()
         history.add(userContent)
 
@@ -53,6 +68,6 @@ fun main() {
             .build()
         history.add(assistantContent)
 
-        repository.save(history)
+        chatHistory.save(history)
     }
 }
