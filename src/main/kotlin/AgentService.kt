@@ -1,19 +1,29 @@
 import com.google.genai.Client
 import com.google.genai.types.Content
 import com.google.genai.types.GenerateContentConfig
-import com.google.genai.types.GoogleSearch
 import com.google.genai.types.Part
 import com.google.genai.types.Tool
+import tools.Reminder
+import tools.SchedulerService
+import tools.currentTimeDeclaration
+import tools.googleSearchTool
+import tools.handleCurrentTime
 import java.io.File
 
-class AgentService {
+class AgentService(onReminder: (Reminder) -> Unit) {
     private val client = Client.builder()
         .apiKey(System.getenv("GOOGLE_API_KEY"))
         .build()
 
+    private val scheduler = SchedulerService(onReminder)
+
     private val config = GenerateContentConfig.builder()
         .systemInstruction(Content.fromParts(Part.fromText(File("soul.md").readText())))
-        .tools(listOf(Tool.builder().googleSearch(GoogleSearch.builder().build()).build()))
+        .tools(listOf(
+            Tool.builder().functionDeclarations(
+                scheduler.functionDeclarations + currentTimeDeclaration
+            ).build()
+        ))
         .build()
 
     private val chatHistory = ChatHistoryRepository()
@@ -33,10 +43,15 @@ class AgentService {
             messages.add("Indexed $indexed chunks from documents.")
         }
 
+        val scheduled = scheduler.init()
+        if (scheduled > 0) {
+            messages.add("Restored $scheduled pending reminders.")
+        }
+
         return messages.joinToString("\n")
     }
 
-    fun chat(input: String): String {
+    fun chat(input: String, chatId: Long? = null): String {
         val relevantChunks = documents.search(input)
         val message = if (relevantChunks.isNotEmpty()) {
             val context = relevantChunks.joinToString("\n\n") { "[${it.source}]\n${it.text}" }
@@ -51,11 +66,37 @@ class AgentService {
             .build()
         history.add(userContent)
 
-        val response = client.models.generateContent(
-            "gemini-2.5-flash",
-            history,
-            config
-        )
+        var response = client.models.generateContent("gemini-2.5-flash", history, config)
+
+        while (response.functionCalls()?.isNotEmpty() == true) {
+            val functionCalls = response.functionCalls()!!
+            val responseParts = mutableListOf<Part>()
+
+            for (fc in functionCalls) {
+                val name = fc.name().orElse("")
+                val args = fc.args().orElse(emptyMap())
+                val result = when (name) {
+                    "get_current_time" -> handleCurrentTime()
+                    else -> scheduler.handleFunctionCall(name, args, chatId)
+                        ?: mapOf("error" to "Unknown function: $name")
+                }
+                responseParts.add(Part.fromFunctionResponse(name, result))
+            }
+
+            val modelContent = Content.builder()
+                .role("model")
+                .parts(response.parts())
+                .build()
+            history.add(modelContent)
+
+            val functionResponseContent = Content.builder()
+                .role("user")
+                .parts(responseParts)
+                .build()
+            history.add(functionResponseContent)
+
+            response = client.models.generateContent("gemini-2.5-flash", history, config)
+        }
 
         val text = response.text() ?: "(no response)"
 

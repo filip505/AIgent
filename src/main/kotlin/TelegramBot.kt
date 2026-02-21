@@ -1,11 +1,25 @@
+import tools.Reminder
 import com.github.kotlintelegrambot.bot
+import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.dispatch
 import com.github.kotlintelegrambot.dispatcher.command
 import com.github.kotlintelegrambot.dispatcher.message
 import com.github.kotlintelegrambot.entities.ChatId
 
-fun startTelegramBot(token: String, agent: AgentService) {
-    val bot = bot {
+fun startTelegramBot(token: String) {
+    lateinit var botInstance: Bot
+
+    val agent = AgentService { reminder ->
+        val chatId = reminder.chatId
+        if (chatId != null) {
+            botInstance.sendMessage(
+                chatId = ChatId.fromId(chatId),
+                text = "🔔 Reminder: ${reminder.message}"
+            )
+        }
+    }
+
+    botInstance = bot {
         this.token = token
         dispatch {
             command("start") {
@@ -28,7 +42,7 @@ fun startTelegramBot(token: String, agent: AgentService) {
                 if (text.startsWith("/")) return@message
 
                 try {
-                    val reply = agent.chat(text)
+                    val reply = agent.chat(text, chatId = message.chat.id)
                     bot.sendMessage(
                         chatId = ChatId.fromId(message.chat.id),
                         text = reply
@@ -45,6 +59,9 @@ fun startTelegramBot(token: String, agent: AgentService) {
         }
     }
 
+    val status = agent.init()
+    if (status.isNotEmpty()) println(status)
+
     println("Telegram bot started. Send a message to your bot!")
-    bot.startPolling()
+    botInstance.startPolling()
 }
