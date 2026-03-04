@@ -5,6 +5,7 @@ import com.google.genai.types.Part
 import com.google.genai.types.Tool
 import tools.Reminder
 import tools.SchedulerService
+import tools.GitHubDocumentService
 import tools.currentTimeDeclaration
 import tools.googleSearchTool
 import tools.handleCurrentTime
@@ -16,12 +17,13 @@ class AgentService(onReminder: (Reminder) -> Unit) {
         .build()
 
     private val scheduler = SchedulerService(onReminder)
+    private val githubDocs = GitHubDocumentService()
 
     private val config = GenerateContentConfig.builder()
         .systemInstruction(Content.fromParts(Part.fromText(File("soul.md").readText())))
         .tools(listOf(
             Tool.builder().functionDeclarations(
-                scheduler.functionDeclarations + currentTimeDeclaration
+                scheduler.functionDeclarations + githubDocs.functionDeclarations + currentTimeDeclaration
             ).build()
         ))
         .build()
@@ -47,6 +49,9 @@ class AgentService(onReminder: (Reminder) -> Unit) {
         if (scheduled > 0) {
             messages.add("Restored $scheduled pending reminders.")
         }
+
+        val githubStatus = githubDocs.init()
+        messages.add(githubStatus)
 
         return messages.joinToString("\n")
     }
@@ -77,6 +82,9 @@ class AgentService(onReminder: (Reminder) -> Unit) {
                 val args = fc.args().orElse(emptyMap())
                 val result = when (name) {
                     "get_current_time" -> handleCurrentTime()
+                    "push_document_to_github", "list_github_documents", "read_github_document" ->
+                        githubDocs.handleFunctionCall(name, args)
+                            ?: mapOf("error" to "Unknown function: $name")
                     else -> scheduler.handleFunctionCall(name, args, chatId)
                         ?: mapOf("error" to "Unknown function: $name")
                 }

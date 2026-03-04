@@ -18,6 +18,7 @@ out/
 
 # Scripts with secrets
 run.sh
+service-account.json
 
 # Chat history
 chat_history.json
