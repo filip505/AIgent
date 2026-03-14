@@ -11,6 +11,7 @@ repositories {
 dependencies {
     implementation("com.google.genai:google-genai:1.36.0")
     implementation("io.github.kotlin-telegram-bot.kotlin-telegram-bot:telegram:6.3.0")
+    implementation("org.xerial:sqlite-jdbc:3.45.1.0")
     testImplementation(kotlin("test"))
 }
 
