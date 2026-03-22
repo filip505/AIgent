@@ -26,5 +26,9 @@ chat_history.json
 # Reminders
 reminders.json
 
+# Embeddings / runtime data
+embeddings.json
+embeddings.db
+
 # OS
 .DS_Store
