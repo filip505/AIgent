@@ -18,48 +18,67 @@ class GitHubDocumentService(
             return repoUrl.replace("https://", "https://$githubToken@")
         }
 
-    val functionDeclarations = listOf(
-        FunctionDeclaration.builder()
-            .name("push_document_to_github")
-            .description("Push a markdown document to the private GitHub repository. Creates the document if it doesn't exist, updates it if it does. The commit message will be auto-generated based on the content.")
-            .parameters(
-                Schema.builder()
-                    .type(Type.Known.OBJECT)
-                    .properties(mapOf(
-                        "document_name" to Schema.builder()
-                            .type(Type.Known.STRING)
-                            .description("The name of the document (without .md extension, it will be added automatically). Example: 'meeting-notes' or 'project-ideas'")
-                            .build(),
-                        "content" to Schema.builder()
-                            .type(Type.Known.STRING)
-                            .description("The markdown content to write to the document")
-                            .build()
-                    ))
-                    .required("document_name", "content")
-                    .build()
-            )
-            .build(),
-        FunctionDeclaration.builder()
-            .name("list_github_documents")
-            .description("List all markdown documents in the repository.")
-            .parameters(Schema.builder().type(Type.Known.OBJECT).properties(emptyMap<String, Schema>()).build())
-            .build(),
-        FunctionDeclaration.builder()
-            .name("read_github_document")
-            .description("Read the content of a markdown document from the repository.")
-            .parameters(
-                Schema.builder()
-                    .type(Type.Known.OBJECT)
-                    .properties(mapOf(
-                        "document_name" to Schema.builder()
-                            .type(Type.Known.STRING)
-                            .description("The name of the document (without .md extension)")
-                            .build()
-                    ))
-                    .required("document_name")
-                    .build()
-            )
-            .build()
+    val tools: List<AgentTool> = listOf(
+        object : AgentTool {
+            override val declaration: FunctionDeclaration = FunctionDeclaration.builder()
+                .name("push_document_to_github")
+                .description("Push a markdown document to the private GitHub repository. Creates the document if it doesn't exist, updates it if it does. The commit message will be auto-generated based on the content.")
+                .parameters(
+                    Schema.builder()
+                        .type(Type.Known.OBJECT)
+                        .properties(mapOf(
+                            "document_name" to Schema.builder()
+                                .type(Type.Known.STRING)
+                                .description("The name of the document (without .md extension, it will be added automatically). Example: 'meeting-notes' or 'project-ideas'")
+                                .build(),
+                            "content" to Schema.builder()
+                                .type(Type.Known.STRING)
+                                .description("The markdown content to write to the document")
+                                .build()
+                        ))
+                        .required("document_name", "content")
+                        .build()
+                )
+                .build()
+
+            override fun handle(args: Map<String, Any>, chatId: Long?): Map<String, Any> {
+                val documentName = args["document_name"]?.toString() ?: return mapOf("error" to "Missing document_name")
+                val content = args["content"]?.toString() ?: return mapOf("error" to "Missing content")
+                return pushDocument(documentName, content)
+            }
+        },
+        object : AgentTool {
+            override val declaration: FunctionDeclaration = FunctionDeclaration.builder()
+                .name("list_github_documents")
+                .description("List all markdown documents in the repository.")
+                .parameters(Schema.builder().type(Type.Known.OBJECT).properties(emptyMap<String, Schema>()).build())
+                .build()
+
+            override fun handle(args: Map<String, Any>, chatId: Long?): Map<String, Any> = listDocuments()
+        },
+        object : AgentTool {
+            override val declaration: FunctionDeclaration = FunctionDeclaration.builder()
+                .name("read_github_document")
+                .description("Read the content of a markdown document from the repository.")
+                .parameters(
+                    Schema.builder()
+                        .type(Type.Known.OBJECT)
+                        .properties(mapOf(
+                            "document_name" to Schema.builder()
+                                .type(Type.Known.STRING)
+                                .description("The name of the document (without .md extension)")
+                                .build()
+                        ))
+                        .required("document_name")
+                        .build()
+                )
+                .build()
+
+            override fun handle(args: Map<String, Any>, chatId: Long?): Map<String, Any> {
+                val documentName = args["document_name"]?.toString() ?: return mapOf("error" to "Missing document_name")
+                return readDocument(documentName)
+            }
+        }
     )
 
     fun init(): String {
@@ -82,25 +101,6 @@ class GitHubDocumentService(
             } else {
                 "Error: Failed to clone repository: ${cloneResult.error}"
             }
-        }
-    }
-
-    fun handleFunctionCall(name: String, args: Map<String, Any>): Map<String, Any>? {
-        return when (name) {
-            "push_document_to_github" -> {
-                val documentName = args["document_name"]?.toString()
-                    ?: return mapOf("error" to "Missing document_name")
-                val content = args["content"]?.toString()
-                    ?: return mapOf("error" to "Missing content")
-                pushDocument(documentName, content)
-            }
-            "list_github_documents" -> listDocuments()
-            "read_github_document" -> {
-                val documentName = args["document_name"]?.toString()
-                    ?: return mapOf("error" to "Missing document_name")
-                readDocument(documentName)
-            }
-            else -> null
         }
     }
 

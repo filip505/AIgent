@@ -22,26 +22,45 @@ class SchedulerService(private val onReminder: (Reminder) -> Unit) {
     private val scheduler = Executors.newScheduledThreadPool(1)
     private val reminders = mutableListOf<Reminder>()
 
-    val functionDeclarations = listOf(
-        FunctionDeclaration.builder()
-            .name("schedule_reminder")
-            .description("Schedule a reminder for a specific date and time. Use this when the user asks to be reminded of something.")
-            .parameters(
-                Schema.builder()
-                    .type(Type.Known.OBJECT)
-                    .properties(mapOf(
-                        "message" to Schema.builder().type(Type.Known.STRING).description("The reminder message").build(),
-                        "datetime" to Schema.builder().type(Type.Known.STRING).description("ISO 8601 local datetime, e.g. 2025-06-15T20:00:00").build()
-                    ))
-                    .required("message", "datetime")
-                    .build()
-            )
-            .build(),
-        FunctionDeclaration.builder()
-            .name("list_reminders")
-            .description("List all pending reminders.")
-            .parameters(Schema.builder().type(Type.Known.OBJECT).properties(emptyMap<String, Schema>()).build())
-            .build()
+    val tools: List<AgentTool> = listOf(
+        object : AgentTool {
+            override val declaration: FunctionDeclaration = FunctionDeclaration.builder()
+                .name("schedule_reminder")
+                .description("Schedule a reminder for a specific date and time. Use this when the user asks to be reminded of something.")
+                .parameters(
+                    Schema.builder()
+                        .type(Type.Known.OBJECT)
+                        .properties(mapOf(
+                            "message" to Schema.builder().type(Type.Known.STRING).description("The reminder message").build(),
+                            "datetime" to Schema.builder().type(Type.Known.STRING).description("ISO 8601 local datetime, e.g. 2025-06-15T20:00:00").build()
+                        ))
+                        .required("message", "datetime")
+                        .build()
+                )
+                .build()
+
+            override fun handle(args: Map<String, Any>, chatId: Long?): Map<String, Any> {
+                val message = args["message"]?.toString() ?: return mapOf("error" to "Missing message")
+                val datetime = args["datetime"]?.toString() ?: return mapOf("error" to "Missing datetime")
+                return mapOf("result" to schedule(message, datetime, chatId))
+            }
+        },
+        object : AgentTool {
+            override val declaration: FunctionDeclaration = FunctionDeclaration.builder()
+                .name("list_reminders")
+                .description("List all pending reminders.")
+                .parameters(Schema.builder().type(Type.Known.OBJECT).properties(emptyMap<String, Schema>()).build())
+                .build()
+
+            override fun handle(args: Map<String, Any>, chatId: Long?): Map<String, Any> {
+                val list = listReminders()
+                return if (list.isEmpty()) {
+                    mapOf("result" to "No pending reminders.")
+                } else {
+                    mapOf("result" to list.joinToString("\n") { "${it.message} at ${it.triggerAt}" })
+                }
+            }
+        }
     )
 
     fun init(): Int {
@@ -53,26 +72,6 @@ class SchedulerService(private val onReminder: (Reminder) -> Unit) {
         pending.forEach { scheduleTimer(it) }
         save()
         return pending.size
-    }
-
-    fun handleFunctionCall(name: String, args: Map<String, Any>, chatId: Long?): Map<String, Any>? {
-        return when (name) {
-            "schedule_reminder" -> {
-                val message = args["message"]?.toString() ?: return mapOf("error" to "Missing message")
-                val datetime = args["datetime"]?.toString() ?: return mapOf("error" to "Missing datetime")
-                val result = schedule(message, datetime, chatId)
-                mapOf("result" to result)
-            }
-            "list_reminders" -> {
-                val list = listReminders()
-                if (list.isEmpty()) {
-                    mapOf("result" to "No pending reminders.")
-                } else {
-                    mapOf("result" to list.joinToString("\n") { "${it.message} at ${it.triggerAt}" })
-                }
-            }
-            else -> null
-        }
     }
 
     fun schedule(message: String, datetime: String, chatId: Long? = null): String {

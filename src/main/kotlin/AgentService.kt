@@ -3,12 +3,11 @@ import com.google.genai.types.Content
 import com.google.genai.types.GenerateContentConfig
 import com.google.genai.types.Part
 import com.google.genai.types.Tool
+import tools.AgentTool
+import tools.CurrentTimeTool
 import tools.Reminder
 import tools.SchedulerService
 import tools.GitHubDocumentService
-import tools.currentTimeDeclaration
-import tools.googleSearchTool
-import tools.handleCurrentTime
 import java.io.File
 
 class AgentService(onReminder: (Reminder) -> Unit) {
@@ -19,12 +18,12 @@ class AgentService(onReminder: (Reminder) -> Unit) {
     private val scheduler = SchedulerService(onReminder)
     private val githubDocs = GitHubDocumentService()
 
+    private val tools: List<AgentTool> = scheduler.tools + githubDocs.tools + listOf(CurrentTimeTool())
+
     private val config = GenerateContentConfig.builder()
         .systemInstruction(Content.fromParts(Part.fromText(File("soul.md").readText())))
         .tools(listOf(
-            Tool.builder().functionDeclarations(
-                scheduler.functionDeclarations + githubDocs.functionDeclarations + currentTimeDeclaration
-            ).build()
+            Tool.builder().functionDeclarations(tools.map { it.declaration }).build()
         ))
         .build()
 
@@ -80,14 +79,8 @@ class AgentService(onReminder: (Reminder) -> Unit) {
             for (fc in functionCalls) {
                 val name = fc.name().orElse("")
                 val args = fc.args().orElse(emptyMap())
-                val result = when (name) {
-                    "get_current_time" -> handleCurrentTime()
-                    "push_document_to_github", "list_github_documents", "read_github_document" ->
-                        githubDocs.handleFunctionCall(name, args)
-                            ?: mapOf("error" to "Unknown function: $name")
-                    else -> scheduler.handleFunctionCall(name, args, chatId)
-                        ?: mapOf("error" to "Unknown function: $name")
-                }
+                val tool = tools.find { it.declaration.name().orElse("") == name }
+                val result = tool?.handle(args, chatId) ?: mapOf("error" to "Unknown function: $name")
                 responseParts.add(Part.fromFunctionResponse(name, result))
             }
 
