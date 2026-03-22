@@ -20,12 +20,30 @@ class AgentService(onReminder: (Reminder) -> Unit) {
 
     private val tools: List<AgentTool> = scheduler.tools + githubDocs.tools + listOf(CurrentTimeTool())
 
-    private val config = GenerateContentConfig.builder()
-        .systemInstruction(Content.fromParts(Part.fromText(File("soul.md").readText())))
-        .tools(listOf(
-            Tool.builder().functionDeclarations(tools.map { it.declaration }).build()
-        ))
-        .build()
+    private val soul = File("soul.md").readText()
+    private val skillLoader = SkillLoader()
+    private val allSkills = skillLoader.loadAll()
+
+    private fun buildConfig(input: String): GenerateContentConfig {
+        val relevantSkills = skillLoader.selectRelevant(input, allSkills)
+        val systemPrompt = buildString {
+            append(soul)
+            if (relevantSkills.isNotEmpty()) {
+                append("\n\n# Active Skills\n")
+                relevantSkills.forEach { skill ->
+                    append("\n## ${skill.name}\n")
+                    append(skill.content)
+                    append("\n")
+                }
+            }
+        }
+        return GenerateContentConfig.builder()
+            .systemInstruction(Content.fromParts(Part.fromText(systemPrompt)))
+            .tools(listOf(
+                Tool.builder().functionDeclarations(tools.map { it.declaration }).build()
+            ))
+            .build()
+    }
 
     private val chatHistory = ChatHistoryRepository()
     private val history = chatHistory.load()
@@ -70,6 +88,7 @@ class AgentService(onReminder: (Reminder) -> Unit) {
             .build()
         history.add(userContent)
 
+        val config = buildConfig(input)
         var response = client.models.generateContent("gemini-2.5-flash", history, config)
 
         while (response.functionCalls()?.isNotEmpty() == true) {
