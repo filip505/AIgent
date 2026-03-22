@@ -23,5 +23,8 @@ service-account.json
 # Chat history
 chat_history.json
 
+# Reminders
+reminders.json
+
 # OS
 .DS_Store

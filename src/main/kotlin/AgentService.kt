@@ -8,6 +8,7 @@ import tools.CurrentTimeTool
 import tools.Reminder
 import tools.SchedulerService
 import tools.GitHubDocumentService
+import tools.SpawnAgentTool
 import java.io.File
 
 class AgentService(onReminder: (Reminder) -> Unit) {
@@ -18,7 +19,9 @@ class AgentService(onReminder: (Reminder) -> Unit) {
     private val scheduler = SchedulerService(onReminder)
     private val githubDocs = GitHubDocumentService()
 
-    private val tools: List<AgentTool> = scheduler.tools + githubDocs.tools + listOf(CurrentTimeTool())
+    // baseTools excludes spawn_agent so sub-agents cannot spawn further sub-agents
+    private val baseTools: List<AgentTool> = scheduler.tools + githubDocs.tools + listOf(CurrentTimeTool())
+    private val tools: List<AgentTool> = baseTools + listOf(SpawnAgentTool(client, baseTools))
 
     private val soul = File("soul.md").readText()
     private val skillLoader = SkillLoader()
